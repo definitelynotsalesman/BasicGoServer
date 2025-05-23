@@ -9,16 +9,21 @@ import (
 func main() {
     port := os.Getenv("PORT")
     if port == "" {
-        port = "10000"
+        fmt.Println("ERROR: PORT not set — Render needs this")
+        port = "10000" // for local testing fallback
+    } else {
+        fmt.Println("Using PORT:", port)
     }
 
     http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-        fmt.Fprintln(w, "It works!")
+        fmt.Fprintln(w, "Render check success")
     })
 
-    fmt.Printf("Listening on 0.0.0.0:%s\n", port)
-    err := http.ListenAndServe("0.0.0.0:"+port, nil)
-    if err != nil {
-        panic(err)
+    addr := "0.0.0.0:" + port
+    fmt.Println("Listening on", addr)
+
+    if err := http.ListenAndServe(addr, nil); err != nil {
+        fmt.Println("ListenAndServe error:", err)
+        os.Exit(1)
     }
 }
