@@ -1,29 +1,45 @@
-package main
+func handleWebSocket(w http.ResponseWriter, r *http.Request) {
+    fmt.Println("New connection attempt...")
+    conn, err := upgrader.Upgrade(w, r, nil)
+    if err != nil {
+        fmt.Println("Upgrade error:", err)
+        return
+    }
+    defer conn.Close()
 
-import (
-    "fmt"
-    "net/http"
-    "os"
-)
+    mutex.Lock()
+    clients[conn] = true
+    mutex.Unlock()
 
-func main() {
-    port := os.Getenv("PORT")
-    if port == "" {
-        fmt.Println("ERROR: PORT not set — Render needs this")
-        port = "10000" // for local testing fallback
-    } else {
-        fmt.Println("Using PORT:", port)
+    fmt.Println("Client connected:", conn.RemoteAddr())
+
+    for {
+        _, msg, err := conn.ReadMessage()
+        if err != nil {
+            fmt.Println("Read error:", err)
+            break
+        }
+
+        fmt.Println("Received:", string(msg))
+
+        // Broadcast to all other connected clients
+        mutex.Lock()
+        for client := range clients {
+            if client != conn {
+                err := client.WriteMessage(websocket.TextMessage, msg)
+                if err != nil {
+                    fmt.Println("Write error:", err)
+                    client.Close()
+                    delete(clients, client)
+                }
+            }
+        }
+        mutex.Unlock()
     }
 
-    http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-        fmt.Fprintln(w, "Render check success")
-    })
-
-    addr := "0.0.0.0:" + port
-    fmt.Println("Listening on", addr)
-
-    if err := http.ListenAndServe(addr, nil); err != nil {
-        fmt.Println("ListenAndServe error:", err)
-        os.Exit(1)
-    }
+    // Clean up on disconnect
+    mutex.Lock()
+    delete(clients, conn)
+    mutex.Unlock()
+    fmt.Println("Client disconnected:", conn.RemoteAddr())
 }
