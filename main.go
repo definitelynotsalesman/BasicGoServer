@@ -11,7 +11,7 @@ import (
 
 var upgrader = websocket.Upgrader{
     CheckOrigin: func(r *http.Request) bool {
-        return true // Allow all origins
+        return true
     },
 }
 
@@ -36,7 +36,6 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
             break
         }
 
-        // Broadcast to all clients
         mutex.Lock()
         for client := range clients {
             if client != conn {
@@ -54,13 +53,13 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 func main() {
     port := os.Getenv("PORT")
     if port == "" {
-        port = "10000"
+        port = "10000" // fallback for local testing
     }
 
     http.HandleFunc("/ws", handleWebSocket)
 
     fmt.Println("Listening on port", port)
-    err := http.ListenAndServe(":"+port, nil)
+    err := http.ListenAndServe("0.0.0.0:"+port, nil) // ⬅️ MUST use 0.0.0.0
     if err != nil {
         panic("Server error: " + err.Error())
     }
